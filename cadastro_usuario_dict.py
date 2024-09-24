@@ -342,7 +342,7 @@ def salvar_json(usuarios: dict[str, dict[str, str | int]]) -> dict | None:
         usuarios (dict[str, dict[str, str | int]]): Dicionário que armazena os usuários cadastrados.
     """
     try:
-        response = requests.post('https://amused-martin-sacred.ngrok-free.app/', json=usuarios)
+        response = requests.session().post('https://amused-martin-sacred.ngrok-free.app/', json=usuarios)
         response.raise_for_status()  # Levanta uma exceção para erros HTTP
         json_data_post = response.json()  # pegar a resposta voltando
         return json_data_post
@@ -364,7 +364,7 @@ def carregar_json(nome_arquivo: str) -> dict[str, dict[str, str | int]]:
         dict[str, dict[str, str | int]]: dicionário com os dados dos usuários.
     """
     try:
-        response = requests.get('https://amused-martin-sacred.ngrok-free.app/')
+        response = requests.session().get('https://amused-martin-sacred.ngrok-free.app/')
         return response.json()
     except requests.exceptions.RequestException as e:
         print(f"Ocorreu um erro inesperado na requisição GET: {e}")
