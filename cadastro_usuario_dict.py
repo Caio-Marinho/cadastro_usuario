@@ -1,8 +1,10 @@
 import json
 import os
 import hashlib
+import requests
 
-id_apagado = []
+# Lista para armazenar IDs de usuários deletados
+id_apagado: list[int] = []
 
 
 def menu() -> None:
@@ -12,8 +14,8 @@ def menu() -> None:
     Esta função imprime as opções disponíveis no sistema de cadastro de usuários.
     O usuário pode escolher entre cadastrar, buscar, deletar, listar, atualizar usuários ou sair do sistema.
     """
-    op = ['Cadastrar Usuário', 'Buscar Usuário', 'Deletar Usuário', 'Listar Usuários', 'Atualizar Usuários', 'Sair']
-    for index, alternativa in enumerate(op):
+    opcoes = ['Cadastrar Usuário', 'Buscar Usuário', 'Deletar Usuário', 'Listar Usuários', 'Atualizar Usuários', 'Sair']
+    for index, alternativa in enumerate(opcoes):
         print(f"{index + 1}. {alternativa}")
 
 
@@ -23,8 +25,9 @@ def cadastrar_usuario(usuarios: dict[str, dict[str, str | int]]) -> dict[str, di
 
     Args: usuarios (dict[str, dict[str, str | int]]): Dicionário que armazena os usuários cadastrados.
 
+
     Returns:
-        dict[str, dict[str, str | int]]: dicionário atualizado com o novo usuário.
+        dict[str, dict[str, str | int]]: Dicionário atualizado com o novo usuário.
     """
     nome: str = obter_nome_usuario()  # Obtém o nome do usuário
     idade: int = validar_idade()  # Valida a idade do usuário
@@ -150,8 +153,7 @@ def atualizar_usuario(usuarios: dict[str, dict[str, str | int]]) -> None:
     if len(usuarios_encontrados) == 1:
         usuario_id = usuarios_encontrados[0]
         info = usuarios[usuario_id]
-    if not verificar_senha(usuario_id, usuarios):  # Verifica se o usuário existe e a senha está
-        # correta
+    if not verificar_senha(usuario_id, usuarios):  # Verifica se o usuário existe e a senha está correta
         print("Usuário não encontrado ou senha incorreta!")
         return
 
@@ -227,6 +229,7 @@ def hash_senha(password: str, salt: bytes = None) -> tuple[int, bytes]:
     Args: password (str): A senha a ser criptografada.
     Args: salt (bytes, opcional): Salt utilizado no hash. Se não fornecido, será gerado.
 
+
     Returns:
         tuple: Hash da senha e o salt utilizado.
     """
@@ -241,16 +244,16 @@ def verificar_senha(user_id: str, usuarios: dict[str, dict[str, str | int]]) -> 
     """
     Verifica se a senha fornecida é válida para o usuário.
 
-    Args: nome (str): Nome do usuário.
+    Args: user_id (str): ID do usuário.
     Args: usuarios (dict[str, dict[str, str | int]]): Dicionário com as informações dos usuários.
+
 
     Returns:
         bool: True se a senha for válida, false caso contrário.
     """
     try:
         password = obter_senha_usuario()  # Obtém a senha fornecida pelo usuário
-        password_hash, _ = hash_senha(password, usuarios[user_id]['salt'])  # Gera o hash usando o salt do
-        # usuário
+        password_hash, _ = hash_senha(password, usuarios[user_id]['salt'])  # Gera o hash usando o salt do usuário
         return password_hash == usuarios[user_id]['hash']  # Verifica se o hash corresponde
     except KeyError:
         print("Usuário não encontrado!")
@@ -266,9 +269,9 @@ def verificar_caracteres(texto: str) -> bool:
     Returns:
         bool: Retorna True se o texto não contiver caracteres inválidos.
     """
-    char = [' ', '#', '$', '%', '^', '&', '*', '(', ')', '+', '=', '[', ']', '{', '}', '|', '\\', ':', ';',
-            '"', "'", '<', '>', '?', '-']  # Caracteres proibidos
-    return not any(caracter in texto for caracter in char)  # Retorna True se não encontrar caracteres proibidos
+    caracteres_proibidos = [' ', '#', '$', '%', '^', '&', '*', '(', ')', '+', '=', '[', ']', '{', '}', '|', '\\', ':', ';',
+                            '"', "'", '<', '>', '?', '-']  # Caracteres proibidos
+    return not any(caracter in texto for caracter in caracteres_proibidos)  # Retorna True se não encontrar caracteres proibidos
 
 
 def validar_idade() -> int:
@@ -316,37 +319,76 @@ def validar_opcao_menu() -> int:
             print("Informe um número válido.")  # Trata entradas inválidas
 
 
-def calcular_id(usuario: dict) -> int:
-    if len(usuario) >= 1:
-        return max(int(usuario) for usuario in usuarios.keys()) + 1
+def calcular_id(usuarios: dict[str, dict[str, str | int]]) -> int:
+    """
+    Calcula o próximo ID disponível para um novo usuário.
+
+    Args: usuarios (dict[str, dict[str, str | int]]): Dicionário que armazena os usuários cadastrados.
+
+    Returns:
+        int: O próximo ID disponível.
+    """
+    if len(usuarios) >= 1:
+        return max(int(usuario_id) for usuario_id in usuarios.keys()) + 1
     else:
         return 1
 
 
-def salvar_json(usuarios: dict) -> None:
-    with open("usuario.json", 'w') as usuario:
-        usuario.write(json.dumps(usuarios, indent=2))
+def salvar_json(usuarios: dict[str, dict[str, str | int]]) -> dict | None:
+    """
+    Salva os dados dos usuários em um arquivo JSON.
+
+    Args:
+        usuarios (dict[str, dict[str, str | int]]): Dicionário que armazena os usuários cadastrados.
+    """
+    try:
+        response = requests.post('https://amused-martin-sacred.ngrok-free.app/', json=usuarios)
+        response.raise_for_status()  # Levanta uma exceção para erros HTTP
+        json_data_post = response.json()  # pegar a resposta voltando
+        return json_data_post
+    except requests.exceptions.RequestException as e:
+        print(f"Ocorreu um erro inesperado na requisição POST: {e}")
+        print("Salvando offline...")
+        with open("usuario.json", 'w') as usuario:
+            usuario.write(json.dumps(usuarios, indent=2))
+        print('Salvamento completo..')
 
 
-def carregar_json(nome_arquivo: str) -> dict:
-    # Verifica se o arquivo existe
-    if os.path.exists(nome_arquivo):
-        with open(nome_arquivo, 'r') as arquivo:
-            try:
-                # Carrega e retorna o conteúdo do arquivo JSON
-                return json.load(arquivo)
-            except json.JSONDecodeError:
-                print("Erro ao decodificar o JSON. O arquivo pode estar corrompido.")
-                return {}
-    else:
-        print(f"O arquivo {nome_arquivo} não existe.")
-        return {}
+def carregar_json(nome_arquivo: str) -> dict[str, dict[str, str | int]]:
+    """
+    Carrega os dados dos usuários de um arquivo JSON.
+
+    Args: nome_arquivo (str): Nome do arquivo JSON.
+
+    Returns:
+        dict[str, dict[str, str | int]]: dicionário com os dados dos usuários.
+    """
+    try:
+        response = requests.get('https://amused-martin-sacred.ngrok-free.app/')
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Ocorreu um erro inesperado na requisição GET: {e}")
+        # Verifica se o arquivo existe
+        if os.path.exists(nome_arquivo):
+            with open(nome_arquivo, 'r') as arquivo:
+                try:
+                    # Carrega e retorna o conteúdo do arquivo JSON
+                    return json.load(arquivo)
+                except json.JSONDecodeError:
+                    print("Erro ao decodificar o JSON. O arquivo pode estar corrompido.")
+                    return {}
+        else:
+            print(f"O arquivo {nome_arquivo} não existe.")
+            return {}
 
 
+# Nome do arquivo JSON para armazenar os dados dos usuários
 arquivo_json = 'usuario.json'
 
-usuarios = carregar_json(arquivo_json)  # Dicionário para armazenar os usuários
+# Carrega os dados dos usuários do arquivo JSON
+usuarios = carregar_json(arquivo_json)
 
+# Loop principal do sistema de cadastro de usuários
 while True:
     menu()  # Exibe o menu
     opcao = validar_opcao_menu()  # Obtém a opção do menu
@@ -368,3 +410,6 @@ while True:
         case 6:
             print("Saindo....")  # Mensagem de saída
             break  # Encerra o loop
+
+# Aguarda a entrada do usuário antes de encerrar o programa
+input()
